@@ -1,8 +1,8 @@
 // api/gemini.js
 
 // Using require for maximum compatibility in Vercel's Node.js environment
-const dotenv = require('dotenv');
-dotenv.config();
+//const dotenv = require('dotenv');
+//dotenv.config();
 
 const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025'; 
 
