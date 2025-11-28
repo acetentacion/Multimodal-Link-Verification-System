@@ -11,15 +11,15 @@
             font-family: 'Inter', sans-serif;
             background-color: #f7f9fb;
         }
-        /* Custom classes for the report card based on the mock data */
-        .verdict-True { background-color: #d1fae5; color: #065f46; } /* Green */
-        .verdict-Misleading { background-color: #fef3c7; color: #b45309; } /* Amber */
-        .verdict-Unverifiable { background-color: #fee2e2; color: #991b1b; } /* Red */
-        .verdict-MostlyTrue { background-color: #ccfbf1; color: #0f766e; } /* Teal for Mostly True */
-        .verdict-False { background-color: #fce7f3; color: #be185d; } /* Pink for False */
-        .verdict-MostlyFalse { background-color: #fbcfe8; color: #9d174d; } /* Rose for Mostly False */
+        
+        .verdict-True { background-color: #d1fae5; color: #065f46; } 
+        .verdict-Misleading { background-color: #fef3c7; color: #b45309; } 
+        .verdict-Unverifiable { background-color: #fee2e2; color: #991b1b; } 
+        .verdict-MostlyTrue { background-color: #ccfbf1; color: #0f766e; } 
+        .verdict-False { background-color: #fce7f3; color: #be185d; } 
+        .verdict-MostlyFalse { background-color: #fbcfe8; color: #9d174d; } 
 
-        /* Custom scrollbar for aesthetic */
+        
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -27,7 +27,7 @@
             background: #cbd5e1;
             border-radius: 10px;
         }
-        /* Responsive handling for the main container */
+        
         @media (max-width: 640px) {
             .max-w-4xl {
                 max-width: 100%;
@@ -138,11 +138,14 @@
                 <p id="empty-claims" class="text-gray-500 italic">No claims have been analyzed yet.</p>
             </div>
         </div>
-    </div>
 
-    <footer class="mt-10 mb-6 w-full max-w-4xl text-center text-sm text-gray-500">
+        <footer class="mt-10 mb-6 w-full max-w-4xl text-center text-sm text-gray-500">
         <p class="mt-1">Multimodal Verification Engine created by Edgie Ace Pojadas.</p>
     </footer>
+    
+    </div>
+
+    
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -150,21 +153,13 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // --- GLOBAL STATE & CONFIGURATION (FOR LOCAL RUNNING) ---
+   
         setLogLevel('Debug');
-        
-        // **********************************************
-        // *** 1. SECURITY FIX: API Key Handled by Proxy ***
-        // **********************************************
-        // The API Key is now handled securely by a backend proxy function.
+  
         const PROXY_ENDPOINT = '/api/gemini'; 
         const MAX_RETRIES = 3;
 
-        // **********************************************
-        // *** 2. PASTE YOUR FIREBASE CONFIG HERE ***
-        // **********************************************
         const LOCAL_FIREBASE_CONFIG = {
-            // REPLACE THESE VALUES WITH YOUR ACTUAL FIREBASE CONFIG
             apiKey: "AIzaSyAWFr4Mg9PZ1IsGzAuJIfbjyK5saDShCFk",
             authDomain: "multimodal-220ba.firebaseapp.com",
             projectId: "multimodal-220ba",
@@ -179,7 +174,6 @@
         let unsubscribeJobListener = null;
         let startTime;
 
-        // --- DOM Elements ---
         const form = document.getElementById('verification-form');
         const urlInput = document.getElementById('url-input');
         const submitButton = document.getElementById('submit-button');
@@ -192,16 +186,14 @@
         const errorDiv = document.getElementById('error-message');
         const errorTextSpan = document.getElementById('error-text');
         const errorTitleStrong = document.getElementById('error-title');
-        // **NEW DOM Elements for File Upload**
+
         const imageUploadInput = document.getElementById('image-upload');
         const imagePreviewDiv = document.getElementById('image-preview');
         const previewImg = document.getElementById('preview-img');
         
-        // **NEW GLOBAL VARIABLES for uploaded image data**
         let uploadedImageBase64 = null;
         let uploadedImageMimeType = null;
         
-        // --- Firebase Initialization ---
         function initFirebase() {
             try {
                 const firebaseConfig = LOCAL_FIREBASE_CONFIG;
@@ -240,16 +232,15 @@
             }
         }
 
-        // --- Network and Retry Utility (MODIFIED FOR SECURE PROXY) ---
         async function fetchWithRetry(url, options) {
             
             for (let i = 0; i < MAX_RETRIES; i++) {
                 try {
-                    // Send the request to the secure backend proxy endpoint
+                
                     const response = await fetch(PROXY_ENDPOINT, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: options.body // Passes the original Gemini payload
+                        body: options.body 
                     });
                     
                     if (response.status === 401) {
@@ -282,7 +273,6 @@
             }
         }
 
-        // --- UI Utility Functions ---
         function updateStatus(status, module, isComplete = false) {
              currentStatusP.textContent = status;
             
@@ -415,7 +405,7 @@
             submitButton.textContent = 'Start Verification';
         }
 
-// --- Helper for fetching and encoding a remote image ---
+
 async function urlToBase64(url) {
     if (!url) return null;
     
@@ -426,7 +416,6 @@ async function urlToBase64(url) {
     try {
         updateStatus(`Fetching and encoding visual asset: ${url.substring(0, 50)}...`, 'Multimodal Prep');
 
-        // Check if a proxy is needed
         if (!url.startsWith('https://img.youtube.com') && !url.includes('picsum.photos')) {
              fetchUrl = CORS_PROXY + encodeURIComponent(url);
              updateStatus(`Using CORS proxy to fetch URL: ${url.substring(0, 30)}...`, 'Proxy Service');
@@ -441,23 +430,22 @@ async function urlToBase64(url) {
         
         const blob = await response.blob();
         
-        // **CRITICAL FIX: Validate MIME Type**
+
         const mimeType = blob.type;
         if (!mimeType.startsWith('image/')) {
             console.warn(`[MIME Type Check] Fetched asset is not an image. Type: ${mimeType}. Aborting multimodal analysis.`);
-            // If the proxy was used and returned a non-image (like HTML), 
-            // log a specific warning.
+
             if (usingProxy) {
                 updateStatus(`Proxy returned non-image content (${mimeType}). Proceeding with text-only verification.`, 'Multimodal Prep');
             }
-            return null; // Return null to skip the image part
+            return null; 
         }
 
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Data = reader.result.split(',')[1];
-                resolve({ base64Data, mimeType }); // mimeType is now guaranteed to be an image type
+                resolve({ base64Data, mimeType }); 
             };
             reader.onerror = reject;
             reader.readAsDataURL(blob);
@@ -469,7 +457,6 @@ async function urlToBase64(url) {
     }
 }
 
-// --- Helper for fetching and encoding a local file ---
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         if (!file.type.startsWith('image/')) {
@@ -479,7 +466,7 @@ function fileToBase64(file) {
         
         const reader = new FileReader();
         reader.onloadend = () => {
-            // result is a Data URL (e.g., data:image/jpeg;base64,...)
+
             const base64Data = reader.result.split(',')[1];
             resolve({ base64Data, mimeType: file.type });
         };
@@ -488,18 +475,13 @@ function fileToBase64(file) {
     });
 }
 
-
-// --- Core Logic ---
-
 async function runVerificationJob(jobId, url) {
     updateStatus('Job submitted to API Gateway.', 'Ingestion Service');
     startTime = new Date();
     
-    // 1. DYNAMIC ASSET EXTRACTION 
     let visualAssetUrl = null;
     let imageInfo = null;
     
-    // **CRITICAL CHANGE: Check for uploaded file first**
     if (uploadedImageBase64 && uploadedImageMimeType) {
         imageInfo = {
             base64Data: uploadedImageBase64,
@@ -508,24 +490,21 @@ async function runVerificationJob(jobId, url) {
         updateStatus('Using uploaded local image for multimodal analysis.', 'Multimodal Prep');
 
     } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        // Direct YouTube Thumbnail Extraction 
+
         const videoIdMatch = url.match(/(?:\?v=|\/embed\/|\/watch\?v=|youtu\.be\/)([^&?]+)/);
         if (videoIdMatch && videoIdMatch[1]) {
             visualAssetUrl = `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
         }
     } else if (url.match(/\.(jpeg|jpg|png|gif|webp|tiff|bmp)$/i)) {
-        // Direct Image URL input - Handled by urlToBase64
+
         visualAssetUrl = url;
     } 
-    // NOTE: If no file or valid image URL is detected, imageInfo remains null, 
-    // and the process falls back to text-only analysis.
 
-    // 2. IMAGE PREPARATION 
     let imagePart = null;
     
-    // Fetch image from URL if a URL was identified and no file was uploaded
+
     if (visualAssetUrl && !imageInfo) {
-        // The image will be fetched via the proxy inside urlToBase64 if needed.
+
         imageInfo = await urlToBase64(visualAssetUrl);
     }
     
@@ -572,7 +551,7 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
 }
 `;
 
-    // 3. CONSTRUCT THE QUERY AND PAYLOAD
+
     const textQueryPart = {
         text: `Analyze the main claim or content associated with the following text: "${url}". Use your grounding tools to verify its veracity, and if an image is provided, include a dedicated multimodal analysis claim in the report.`
     };
@@ -582,13 +561,12 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
         contentsParts.push(imagePart);
     }
     
-    // New Payload (Corrected structure for Gemini API)
+
     const payload = {
         contents: [{ parts: contentsParts }],
-        // Keep the Google Search grounding tool
+ 
         tools: [{ "google_search": {} }], 
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        // We rely on the strong system prompt for JSON formatting.
         generationConfig: {} 
     };
     
@@ -611,7 +589,7 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
         await new Promise(resolve => setTimeout(resolve, 500));
         updateStatus('Text Verification Engine: Fact-checking claims via Grounded LLM (Gemini API)...', 'Fact Checker');
 
-        // CALLING PROXY ENDPOINT
+
         const response = await fetchWithRetry(PROXY_ENDPOINT, { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -690,18 +668,14 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
             });
         }
 
-        // --- Event Listener ---
-        
-        // **1. File Input Listener**
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             
             if (file) {
-                // 1. Reset URL input and disable its requirement
+          
                 urlInput.value = '';
-                urlInput.required = false; // Allow submission without URL if file is present
+                urlInput.required = false; 
                 
-                // 2. Show preview
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     previewImg.src = e.target.result;
@@ -709,7 +683,6 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
                 };
                 reader.readAsDataURL(file);
 
-                // 3. Convert to Base64 for API payload
                 fileToBase64(file)
                     .then(info => {
                         uploadedImageBase64 = info.base64Data;
@@ -725,20 +698,20 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
                         submitButton.disabled = true;
                     });
             } else {
-                // If file is cleared
+
                 urlInput.required = true;
                 uploadedImageBase64 = null;
                 uploadedImageMimeType = null;
                 imagePreviewDiv.classList.add('hidden');
-                // Re-evaluate if submit button should be disabled based on URL
+
                 submitButton.disabled = urlInput.value.trim() === '';
             }
         });
         
-        // **2. URL Input Listener (Clears file selection and re-enables URL requirement)**
+       
         urlInput.addEventListener('input', () => {
             if (urlInput.value.trim()) {
-                // If the user starts typing in the URL field, clear the file input
+              
                 imageUploadInput.value = '';
                 uploadedImageBase64 = null;
                 uploadedImageMimeType = null;
@@ -746,13 +719,13 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
                 submitButton.disabled = false;
                 urlInput.required = true;
             } else if (!uploadedImageBase64) {
-                // If text is cleared and no image is uploaded, disable button
+                
                 submitButton.disabled = true;
                 urlInput.required = true;
             }
         });
 
-        // **3. Final Form Submission Listener (Consolidated Logic)**
+
         form.addEventListener('submit', function(event) {
             event.preventDefault();
             if (!userId) {
@@ -768,8 +741,7 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
                 return;
             }
 
-            // Determine the text claim for the LLM
-            // If an image is uploaded, use a generic prompt indicating the image is the content.
+ 
             const verificationInput = hasUploadedImage ? 
                 "Analyze the uploaded image and extract the main claim for verification. If no explicit claim is found, use Google Search to verify the image's content or context." : url;
             
@@ -777,14 +749,13 @@ Start the response immediately with the opening curly brace '{' of the JSON obje
                 resetUI();
                 const jobId = crypto.randomUUID().substring(0, 8).toUpperCase();
                 jobIdSpan.textContent = jobId;
-                // Pass the generated or original text input to the job runner
+
                 runVerificationJob(jobId, verificationInput); 
             } else {
                 showError("Input Required", "Please enter a URL or a claim to start verification.");
             }
         });
 
-        // --- Startup ---
         window.onload = initFirebase;
 
     </script>
