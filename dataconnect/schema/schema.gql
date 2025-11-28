@@ -1,0 +1,46 @@
+type User @table {
+  displayName: String!
+  email: String
+  photoUrl: String
+  createdAt: Timestamp!
+}
+
+type MindMap @table {
+  title: String!
+  description: String
+  isPublic: Boolean
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  owner: User
+}
+
+type Node @table {
+  positionX: Float!
+  positionY: Float!
+  type: String!
+  content: String!
+  textContent: String
+  createdAt: Timestamp!
+  mindMap: MindMap
+  parentNode: Node
+}
+
+type MediaAsset @table {
+  assetType: String!
+  url: String!
+  thumbnailUrl: String
+  caption: String
+  createdAt: Timestamp!
+  node: Node
+}
+
+type Tag @table {
+  name: String!
+  createdAt: Timestamp!
+}
+
+type MindMapTag @table(key: ["mindMap", "tag"]) {
+  createdAt: Timestamp!
+  mindMap: MindMap!
+  tag: Tag!
+}

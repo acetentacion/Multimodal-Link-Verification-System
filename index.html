@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multimodal Link Verification System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* Custom classes for the report card based on the mock data */
+        .verdict-True { background-color: #d1fae5; color: #065f46; } /* Green */
+        .verdict-Misleading { background-color: #fef3c7; color: #b45309; } /* Amber */
+        .verdict-Unverifiable { background-color: #fee2e2; color: #991b1b; } /* Red */
+        .verdict-MostlyTrue { background-color: #ccfbf1; color: #0f766e; } /* Teal for Mostly True */
+        .verdict-False { background-color: #fce7f3; color: #be185d; } /* Pink for False */
+        .verdict-MostlyFalse { background-color: #fbcfe8; color: #9d174d; } /* Rose for Mostly False */
+
+        /* Custom scrollbar for aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        /* Responsive handling for the main container */
+        @media (max-width: 640px) {
+            .max-w-4xl {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex justify-center items-start">
+
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-10">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 tracking-tight">
+                Multimodal Verification Engine
+            </h1>
+            <p class="mt-2 text-gray-500 text-lg">
+                Analyze claims, images, and video metadata with Gemini.
+            </p>
+            <p id="user-info" class="mt-4 text-xs text-gray-400">
+                User ID: Initializing...
+            </p>
+        </header>
+
+        <form id="verification-form" class="space-y-6 mb-8 p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+            <div class="space-y-2">
+                <label for="url-input" class="block text-base font-semibold text-gray-800">1. Enter a URL or a Text Claim</label>
+                <input
+                    type="text"
+                    id="url-input"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 shadow-sm"
+                    placeholder="E.g., https://youtube.com/watch?v=... OR 'A viral claim text.'"
+                    value="The company Tesla reported a 40% growth in its China sales during the last quarter of 2023."
+                    required
+                >
+            </div>
+            
+            <div class="flex items-center my-4">
+                <hr class="flex-grow border-gray-200">
+                <span class="px-4 text-sm font-medium text-gray-500 bg-gray-50">OR</span>
+                <hr class="flex-grow border-gray-200">
+            </div>
+
+            <div class="space-y-2">
+                <label for="image-upload" class="block text-base font-semibold text-gray-800">2. Upload an Image for Multimodal Analysis</label>
+                <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/png, image/jpeg, image/webp"
+                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer transition duration-150 shadow-sm"
+                >
+            </div>
+            
+            <div id="image-preview" class="hidden mt-2 p-4 bg-white border border-dashed border-gray-300 rounded-lg text-center">
+                <p class="text-sm font-medium text-gray-600 mb-2">Image Preview:</p>
+                <img id="preview-img" class="max-w-full max-h-48 rounded-md shadow-md mx-auto" src="" alt="Image Preview">
+            </div>
+
+            <button
+                type="submit"
+                id="submit-button"
+                class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition duration-150 disabled:bg-blue-400 flex items-center justify-center mt-6"
+            >
+                Start Verification
+            </button>
+        </form>
+
+        <div id="status-container" class="border border-gray-200 rounded-xl p-5 mb-8 hidden transition duration-500 bg-white shadow-md">
+            <h2 class="text-xl font-semibold text-gray-800 mb-3">Verification Job Status</h2>
+            <p class="text-sm text-gray-600 mb-4">Job ID: <span id="job-id" class="font-mono text-gray-800 bg-gray-100 px-2 py-0.5 rounded text-xs">Waiting...</span></p>
+
+            <div class="flex items-center space-x-4">
+                <div id="status-indicator" class="w-4 h-4 rounded-full bg-gray-400 flex-shrink-0"></div>
+                <p id="current-status" class="text-lg font-medium text-gray-600 truncate">Awaiting submission...</p>
+            </div>
+
+            <div class="mt-4 space-y-2 text-sm text-gray-500 max-h-48 overflow-y-auto border-t pt-4" id="progress-log">
+                </div>
+        </div>
+        
+        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative mb-4 transition duration-300 shadow-lg" role="alert">
+            <strong class="font-bold" id="error-title">Configuration Error!</strong>
+            <span id="error-text" class="block sm:inline ml-2">Please check console for details.</span>
+        </div>
+
+        <div id="report-container" class="mt-10 pt-6 border-t-2 border-dashed border-gray-200 hidden transition duration-500">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Verification Report <span class="text-green-600 ml-2">Complete!</span></h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-indigo-50 p-5 rounded-xl shadow-md border border-indigo-200">
+                    <p class="text-sm font-medium text-indigo-700">Overall Credibility Score</p>
+                    <div class="flex items-center mt-2">
+                        <span id="score-display" class="text-5xl font-extrabold text-indigo-800">N/A</span>
+                        <span class="text-xl text-indigo-600 ml-2">/ 10.0</span>
+                    </div>
+                </div>
+                <div class="bg-blue-50 p-5 rounded-xl shadow-md border border-blue-200">
+                    <p class="text-sm font-medium text-blue-700">General Verdict</p>
+                    <p id="verdict-display" class="text-3xl font-extrabold mt-2 text-blue-800">N/A</p>
+                </div>
+                <div class="bg-gray-50 p-5 rounded-xl shadow-md border border-gray-200">
+                    <p class="text-sm font-medium text-gray-700">Analysis Duration</p>
+                    <p id="time-display" class="text-3xl font-extrabold mt-2 text-gray-800">N/A</p>
+                </div>
+            </div>
+
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Detailed Claim Analysis</h3>
+
+            <div id="claims-list" class="space-y-6">
+                <p id="empty-claims" class="text-gray-500 italic">No claims have been analyzed yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- GLOBAL STATE & CONFIGURATION (FOR LOCAL RUNNING) ---
+        setLogLevel('Debug');
+        
+        // **********************************************
+        // *** 1. SECURITY FIX: API Key Handled by Proxy ***
+        // **********************************************
+        // The API Key is now handled securely by a backend proxy function.
+        const PROXY_ENDPOINT = '/api/gemini'; 
+        const MAX_RETRIES = 3;
+
+        // **********************************************
+        // *** 2. PASTE YOUR FIREBASE CONFIG HERE ***
+        // **********************************************
+        const LOCAL_FIREBASE_CONFIG = {
+            // REPLACE THESE VALUES WITH YOUR ACTUAL FIREBASE CONFIG
+            apiKey: "AIzaSyAWFr4Mg9PZ1IsGzAuJIfbjyK5saDShCFk",
+            authDomain: "multimodal-220ba.firebaseapp.com",
+            projectId: "multimodal-220ba",
+            storageBucket: "multimodal-220ba.firebasestorage.app",
+            messagingSenderId: "811673755130",
+            appId: "1:811673755130:web:395d054773715bbf3c1843",
+            measurementId: "G-L812B8XFV3"
+        };
+        const LOCAL_APP_ID = LOCAL_FIREBASE_CONFIG.projectId; 
+        
+        let db, auth, userId = null;
+        let unsubscribeJobListener = null;
+        let startTime;
+
+        // --- DOM Elements ---
+        const form = document.getElementById('verification-form');
+        const urlInput = document.getElementById('url-input');
+        const submitButton = document.getElementById('submit-button');
+        const statusContainer = document.getElementById('status-container');
+        const jobIdSpan = document.getElementById('job-id');
+        const currentStatusP = document.getElementById('current-status');
+        const progressLog = document.getElementById('progress-log');
+        const reportContainer = document.getElementById('report-container');
+        const userInfoP = document.getElementById('user-info');
+        const errorDiv = document.getElementById('error-message');
+        const errorTextSpan = document.getElementById('error-text');
+        const errorTitleStrong = document.getElementById('error-title');
+        // **NEW DOM Elements for File Upload**
+        const imageUploadInput = document.getElementById('image-upload');
+        const imagePreviewDiv = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+        
+        // **NEW GLOBAL VARIABLES for uploaded image data**
+        let uploadedImageBase64 = null;
+        let uploadedImageMimeType = null;
+        
+        // --- Firebase Initialization ---
+        function initFirebase() {
+            try {
+                const firebaseConfig = LOCAL_FIREBASE_CONFIG;
+                const appId = LOCAL_APP_ID;
+                
+                if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
+                    console.error("Firebase configuration is missing or invalid.");
+                    showError("Firebase setup invalid.", "Please check LOCAL_FIREBASE_CONFIG.");
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                    } else {
+                        try {
+                            await signInAnonymously(auth);
+                            userId = auth.currentUser?.uid || crypto.randomUUID();
+                        } catch (e) {
+                            console.error("Firebase Auth Error:", e);
+                            showError("Firebase Auth Failed.", "Ensure Authentication is enabled in your Firebase project.");
+                            userId = crypto.randomUUID(); 
+                            return; 
+                        }
+                    }
+                    userInfoP.textContent = `User ID: ${userId.substring(0, 8)}... (App ID: ${appId.substring(0, 8)}...)`;
+                    submitButton.disabled = false;
+                });
+            } catch (e) {
+                console.error("Failed to initialize Firebase:", e);
+                showError("Database Init Failed.", "Could not initialize Firebase. Check console for configuration details.");
+            }
+        }
+
+        // --- Network and Retry Utility (MODIFIED FOR SECURE PROXY) ---
+        async function fetchWithRetry(url, options) {
+            
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    // Send the request to the secure backend proxy endpoint
+                    const response = await fetch(PROXY_ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: options.body // Passes the original Gemini payload
+                    });
+                    
+                    if (response.status === 401) {
+                        throw new Error(`HTTP error! Status: 401 (Unauthorized). The proxy's GEMINI_API_KEY is invalid.`);
+                    }
+                    if (response.status === 400) {
+                        const errorBody = await response.json();
+                        throw new Error(`HTTP error! Status: 400 (Bad Request). Check payload format. Details: ${errorBody.error?.message || 'N/A'}`);
+                    }
+
+                    if (!response.ok) {
+                        if (i < MAX_RETRIES - 1) {
+                            const delay = Math.pow(2, i) * 1000; 
+                            updateStatus(`Transient API error (${response.status}). Retrying in ${delay / 1000}s...`, 'Network');
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue; 
+                        }
+                        throw new Error(`HTTP error! Status: ${response.status} after ${MAX_RETRIES} attempts.`);
+                    }
+
+                    return response; 
+                } catch (error) {
+                    if (error.message.includes('401') || error.message.includes('400') || i === MAX_RETRIES - 1) {
+                        throw error; 
+                    }
+                    const delay = Math.pow(2, i) * 1000;
+                    updateStatus(`Network issue. Retrying in ${delay / 1000}s...`, 'Network');
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        // --- UI Utility Functions ---
+        function updateStatus(status, module, isComplete = false) {
+             currentStatusP.textContent = status;
+            
+            const indicator = document.getElementById('status-indicator');
+            indicator.classList.remove('bg-gray-400', 'bg-green-500', 'bg-red-500');
+
+            if (isComplete) {
+                indicator.classList.remove('animate-pulse', 'bg-blue-500');
+                indicator.classList.add('bg-green-500');
+                currentStatusP.classList.add('text-green-600');
+            } else if (module === 'Error') {
+                indicator.classList.remove('animate-pulse', 'bg-blue-500');
+                indicator.classList.add('bg-red-500');
+                currentStatusP.classList.add('text-red-600');
+            } else {
+                indicator.classList.add('bg-blue-500', 'animate-pulse');
+                currentStatusP.classList.remove('text-green-600', 'text-red-600');
+            }
+
+            const logEntry = document.createElement('p');
+            logEntry.className = 'flex items-center space-x-2 text-gray-700';
+            logEntry.innerHTML = `
+                <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                <span>[${module}] ${status}</span>
+            `;
+            progressLog.appendChild(logEntry);
+            progressLog.scrollTop = progressLog.scrollHeight;
+        }
+
+        function showError(title, message) {
+            errorTitleStrong.textContent = title;
+            errorTextSpan.textContent = message;
+            errorDiv.classList.remove('hidden');
+            statusContainer.classList.add('hidden');
+            reportContainer.classList.add('hidden');
+            submitButton.disabled = false;
+            submitButton.innerHTML = `Start Verification`; 
+        }
+
+        function hideError() {
+            errorDiv.classList.add('hidden');
+        }
+
+        function resetUI() {
+            hideError();
+            reportContainer.classList.add('hidden');
+            statusContainer.classList.remove('hidden');
+            submitButton.disabled = true;
+            submitButton.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+            `;
+            progressLog.innerHTML = '';
+            document.getElementById('claims-list').innerHTML = ``;
+            document.getElementById('score-display').textContent = 'N/A';
+            document.getElementById('verdict-display').textContent = 'N/A';
+            document.getElementById('time-display').textContent = 'N/A';
+            if (unsubscribeJobListener) {
+                unsubscribeJobListener();
+                unsubscribeJobListener = null;
+            }
+        }
+
+        function showReport(report) {
+            const duration = ((new Date() - startTime) / 1000).toFixed(2) + 's';
+
+            reportContainer.classList.remove('hidden');
+            reportContainer.scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('score-display').textContent = report.overallScore.toFixed(1);
+            document.getElementById('verdict-display').textContent = report.verdict;
+            document.getElementById('time-display').textContent = duration;
+
+            const claimsList = document.getElementById('claims-list');
+            claimsList.innerHTML = ''; 
+
+            if (report.claims && report.claims.length > 0) {
+                report.claims.forEach(claim => {
+                    const claimElement = document.createElement('div');
+                    const verdictClass = `verdict-${claim.verdict.replace(/ /g, '')}`; 
+                    
+                    let groundingIcon;
+                    if (claim.sources && claim.sources.length > 0 && claim.sources.every(s => s.uri !== "internal://visual-check")) {
+                        groundingIcon = `<span class="bg-blue-200 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full ml-2">Grounded (Gemini Search)</span>`;
+                    } else if (claim.sources && claim.sources.some(s => s.uri === "internal://visual-check")) {
+                        groundingIcon = `<span class="bg-purple-200 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full ml-2">Multimodal Simulation</span>`;
+                    } else {
+                         groundingIcon = `<span class="bg-gray-200 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full ml-2">Internal Analysis</span>`;
+                    }
+
+                    claimElement.className = 'bg-white border border-gray-100 rounded-xl shadow-lg p-6 hover:shadow-xl transition duration-300';
+                    claimElement.innerHTML = `
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4">
+                            <div>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">${claim.type}</span>
+                                ${groundingIcon}
+                            </div>
+                            <div class="mt-2 sm:mt-0 px-3 py-1 rounded-full text-sm font-bold ${verdictClass} shadow-sm">
+                                VERDICT: ${claim.verdict.toUpperCase()}
+                            </div>
+                        </div>
+
+                        <p class="text-lg font-semibold text-gray-700 mb-3">${claim.content}</p>
+
+                        <div class="border-l-4 border-gray-300 pl-4 py-1 mb-4">
+                            <p class="text-base text-gray-800">
+                                <span class="font-bold">Explanation:</span> ${claim.explanation}
+                            </p>
+                        </div>
+
+                        <p class="text-sm font-medium text-gray-600 mb-2">Supporting Sources (${claim.sources ? claim.sources.length : 0}):</p>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-gray-500">
+                            ${(claim.sources || []).map(source => `
+                                <li>
+                                    <a href="${source.uri}" target="_blank" class="text-blue-600 hover:text-blue-800 transition duration-150">${source.title || source.uri}</a>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                    claimsList.appendChild(claimElement);
+                });
+            } else {
+                 claimsList.innerHTML = `<p class="text-gray-500 italic">No detailed claims were extracted from the content.</p>`;
+            }
+
+            submitButton.disabled = false;
+            submitButton.textContent = 'Start Verification';
+        }
+
+// --- Helper for fetching and encoding a remote image ---
+async function urlToBase64(url) {
+    if (!url) return null;
+    
+    const CORS_PROXY = 'https://corsproxy.io/?'; 
+    let fetchUrl = url;
+    let usingProxy = false;
+
+    try {
+        updateStatus(`Fetching and encoding visual asset: ${url.substring(0, 50)}...`, 'Multimodal Prep');
+
+        // Check if a proxy is needed
+        if (!url.startsWith('https://img.youtube.com') && !url.includes('picsum.photos')) {
+             fetchUrl = CORS_PROXY + encodeURIComponent(url);
+             updateStatus(`Using CORS proxy to fetch URL: ${url.substring(0, 30)}...`, 'Proxy Service');
+             usingProxy = true;
+        }
+        
+        const response = await fetch(fetchUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image (Status: ${response.status}).`);
+        }
+        
+        const blob = await response.blob();
+        
+        // **CRITICAL FIX: Validate MIME Type**
+        const mimeType = blob.type;
+        if (!mimeType.startsWith('image/')) {
+            console.warn(`[MIME Type Check] Fetched asset is not an image. Type: ${mimeType}. Aborting multimodal analysis.`);
+            // If the proxy was used and returned a non-image (like HTML), 
+            // log a specific warning.
+            if (usingProxy) {
+                updateStatus(`Proxy returned non-image content (${mimeType}). Proceeding with text-only verification.`, 'Multimodal Prep');
+            }
+            return null; // Return null to skip the image part
+        }
+
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64Data = reader.result.split(',')[1];
+                resolve({ base64Data, mimeType }); // mimeType is now guaranteed to be an image type
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+    } catch (e) {
+        console.warn("[Multimodal Prep Warning] Could not fetch/encode image. Proceeding with text-only verification:", e.message);
+        return null; 
+    }
+}
+
+// --- Helper for fetching and encoding a local file ---
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            reject(new Error("File is not a supported image type."));
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            // result is a Data URL (e.g., data:image/jpeg;base64,...)
+            const base64Data = reader.result.split(',')[1];
+            resolve({ base64Data, mimeType: file.type });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+
+// --- Core Logic ---
+
+async function runVerificationJob(jobId, url) {
+    updateStatus('Job submitted to API Gateway.', 'Ingestion Service');
+    startTime = new Date();
+    
+    // 1. DYNAMIC ASSET EXTRACTION 
+    let visualAssetUrl = null;
+    let imageInfo = null;
+    
+    // **CRITICAL CHANGE: Check for uploaded file first**
+    if (uploadedImageBase64 && uploadedImageMimeType) {
+        imageInfo = {
+            base64Data: uploadedImageBase64,
+            mimeType: uploadedImageMimeType
+        };
+        updateStatus('Using uploaded local image for multimodal analysis.', 'Multimodal Prep');
+
+    } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        // Direct YouTube Thumbnail Extraction 
+        const videoIdMatch = url.match(/(?:\?v=|\/embed\/|\/watch\?v=|youtu\.be\/)([^&?]+)/);
+        if (videoIdMatch && videoIdMatch[1]) {
+            visualAssetUrl = `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
+        }
+    } else if (url.match(/\.(jpeg|jpg|png|gif|webp|tiff|bmp)$/i)) {
+        // Direct Image URL input - Handled by urlToBase64
+        visualAssetUrl = url;
+    } 
+    // NOTE: If no file or valid image URL is detected, imageInfo remains null, 
+    // and the process falls back to text-only analysis.
+
+    // 2. IMAGE PREPARATION 
+    let imagePart = null;
+    
+    // Fetch image from URL if a URL was identified and no file was uploaded
+    if (visualAssetUrl && !imageInfo) {
+        // The image will be fetched via the proxy inside urlToBase64 if needed.
+        imageInfo = await urlToBase64(visualAssetUrl);
+    }
+    
+    if (imageInfo) {
+        imagePart = {
+            inlineData: {
+                data: imageInfo.base64Data,
+                mimeType: imageInfo.mimeType,
+            }
+        };
+        updateStatus('Visual asset successfully encoded. Proceeding to LLM analysis...', 'Multimodal Prep');
+    } else {
+         updateStatus('Verification will proceed with text-only analysis and grounding (No valid visual asset found).', 'Multimodal Prep');
+    }
+
+const systemPrompt = `You are a world-class Multimodal Verification Engine. Your task is to fact-check a claim or analyze content from a given URL using Google Search Grounding.
+If an image is provided in the input, you MUST include a 'Visual Claim (Image Analysis)' in the 'claims' array of your final report.
+For the visual claim, analyze the image for quality, context, and relevance to the text claim. If the image is a generic placeholder or stock image (like a large '800x600' placeholder), state a verdict of 'Unverifiable' and explain that the image lacks context.
+
+**STRICT OUTPUT REQUIREMENT:**
+Your final output MUST be a single, valid JSON object that adheres strictly to the defined schema. 
+DO NOT include any introductory text, concluding remarks, markdown formatting, or code block wrappers (like \`\`\`json or \`\`\`) outside of the JSON object itself.
+Start the response immediately with the opening curly brace '{' of the JSON object.
+
+**YOUR FINAL JSON SCHEMA MUST BE:**
+
+{
+    "overallScore": 0.0, // Credibility score from 0.0 to 10.0
+    "verdict": "string", // Overall verdict (e.g., 'True', 'Misleading', 'Unverifiable').
+    "claims": [
+        {
+            "type": "string", // Type of claim (e.g., 'Text Claim', 'Visual Claim').
+            "content": "string", // The specific claim or image being analyzed.
+            "verdict": "string", // The verdict for this specific claim (e.g., 'True', 'False').
+            "explanation": "string", // Detailed explanation of the verdict, citing evidence.
+            "sources": [
+                {
+                    "title": "string",
+                    "uri": "string"
+                }
+            ]
+        }
+    ]
+}
+`;
+
+    // 3. CONSTRUCT THE QUERY AND PAYLOAD
+    const textQueryPart = {
+        text: `Analyze the main claim or content associated with the following text: "${url}". Use your grounding tools to verify its veracity, and if an image is provided, include a dedicated multimodal analysis claim in the report.`
+    };
+
+    const contentsParts = [textQueryPart];
+    if (imagePart) {
+        contentsParts.push(imagePart);
+    }
+    
+    // New Payload (Corrected structure for Gemini API)
+    const payload = {
+        contents: [{ parts: contentsParts }],
+        // Keep the Google Search grounding tool
+        tools: [{ "google_search": {} }], 
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        // We rely on the strong system prompt for JSON formatting.
+        generationConfig: {} 
+    };
+    
+    const appId = LOCAL_APP_ID; 
+    const jobDocRef = doc(db, `artifacts/${appId}/users/${userId}/verification_jobs`, jobId);
+    
+    await setDoc(jobDocRef, {
+        url: url,
+        status: 'PROCESSING',
+        createdAt: new Date(),
+    });
+
+    listenForJobCompletion(jobId);
+
+    try {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        updateStatus('Content Scraping & Extractor module active (Parsing content)...', 'Scraper');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        updateStatus('Multimodal Analysis (Text & Visual) commencing...', 'Parallel Analysis');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        updateStatus('Text Verification Engine: Fact-checking claims via Grounded LLM (Gemini API)...', 'Fact Checker');
+
+        // CALLING PROXY ENDPOINT
+        const response = await fetchWithRetry(PROXY_ENDPOINT, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const candidate = result.candidates?.[0];
+
+        if (candidate && candidate.content?.parts?.[0]?.text) {
+            let jsonString = candidate.content.parts[0].text;
+            
+            jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            
+            const reportData = JSON.parse(jsonString);
+
+            updateStatus('Report Aggregator collecting all verdicts and calculating score...', 'Aggregator');
+            
+            await updateDoc(jobDocRef, {
+                status: 'COMPLETE',
+                report: reportData,
+                finishedAt: new Date()
+            });
+
+        } else {
+            const blockedReason = result.candidates?.[0]?.finishReason;
+            throw new Error('LLM did not return valid JSON content or content was blocked. Finish Reason: ' + (blockedReason || 'Unknown'));
+        }
+    } catch (error) {
+        console.error("[CONSOLE_ERROR] Verification Job Failed:", error);
+        
+        let errorMessage = error.message;
+        let errorTitle = "Verification Job Failed";
+
+        if (error.message.includes('401')) {
+            errorTitle = "API Authorization Failed (401)";
+            errorMessage = "The proxy key is invalid. Check the GEMINI_API_KEY environment variable on your server.";
+        } else if (error.message.includes('400')) {
+            errorTitle = "Bad Request (400)";
+            errorMessage = "Check console for payload format issues or model errors. If you see 'unsupported file type', the image fetch/encoding failed.";
+        }
+
+        updateStatus('Verification Failed. See console for details.', 'Error');
+        await updateDoc(jobDocRef, { status: 'FAILED', error: errorMessage });
+        showError(errorTitle, errorMessage);
+    }
+}
+
+        function listenForJobCompletion(jobId) {
+            const appId = LOCAL_APP_ID; 
+            const jobDocRef = doc(db, `artifacts/${appId}/users/${userId}/verification_jobs`, jobId);
+
+            if (unsubscribeJobListener) {
+                unsubscribeJobListener();
+            }
+
+            unsubscribeJobListener = onSnapshot(jobDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const job = docSnap.data();
+                    jobIdSpan.textContent = docSnap.id;
+
+                    if (job.status === 'COMPLETE' && job.report) {
+                        updateStatus('Verification Complete. Report Generated.', 'Report Generator', true);
+                        showReport(job.report);
+                        if (unsubscribeJobListener) unsubscribeJobListener();
+                    } else if (job.status === 'FAILED') {
+                        updateStatus('Verification Failed. Check Error Message.', 'Error');
+                        showError("Job Failed", `Job ID ${docSnap.id} failed: ${job.error || 'Unknown error.'}`);
+                        if (unsubscribeJobListener) unsubscribeJobListener();
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
+                updateStatus('Lost connection to status stream.', 'Error');
+                showError("Connection Error", "Lost connection to the job status. Please retry.");
+            });
+        }
+
+        // --- Event Listener ---
+        
+        // **1. File Input Listener**
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            
+            if (file) {
+                // 1. Reset URL input and disable its requirement
+                urlInput.value = '';
+                urlInput.required = false; // Allow submission without URL if file is present
+                
+                // 2. Show preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    imagePreviewDiv.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+
+                // 3. Convert to Base64 for API payload
+                fileToBase64(file)
+                    .then(info => {
+                        uploadedImageBase64 = info.base64Data;
+                        uploadedImageMimeType = info.mimeType;
+                        submitButton.disabled = false; // Enable submit button
+                    })
+                    .catch(error => {
+                        console.error("File Conversion Error:", error);
+                        showError("File Error", "Could not process image file. Only PNG, JPEG, WEBP are supported.");
+                        uploadedImageBase64 = null;
+                        uploadedImageMimeType = null;
+                        imagePreviewDiv.classList.add('hidden');
+                        submitButton.disabled = true;
+                    });
+            } else {
+                // If file is cleared
+                urlInput.required = true;
+                uploadedImageBase64 = null;
+                uploadedImageMimeType = null;
+                imagePreviewDiv.classList.add('hidden');
+                // Re-evaluate if submit button should be disabled based on URL
+                submitButton.disabled = urlInput.value.trim() === '';
+            }
+        });
+        
+        // **2. URL Input Listener (Clears file selection and re-enables URL requirement)**
+        urlInput.addEventListener('input', () => {
+            if (urlInput.value.trim()) {
+                // If the user starts typing in the URL field, clear the file input
+                imageUploadInput.value = '';
+                uploadedImageBase64 = null;
+                uploadedImageMimeType = null;
+                imagePreviewDiv.classList.add('hidden');
+                submitButton.disabled = false;
+                urlInput.required = true;
+            } else if (!uploadedImageBase64) {
+                // If text is cleared and no image is uploaded, disable button
+                submitButton.disabled = true;
+                urlInput.required = true;
+            }
+        });
+
+        // **3. Final Form Submission Listener (Consolidated Logic)**
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (!userId) {
+                showError("Initialization Pending", "Application is still initializing Firebase. Please wait a moment.");
+                return;
+            }
+
+            const url = urlInput.value.trim();
+            const hasUploadedImage = uploadedImageBase64 && uploadedImageMimeType;
+
+            if (!url && !hasUploadedImage) {
+                showError("Input Required", "Please enter a URL/claim OR upload an image to start verification.");
+                return;
+            }
+
+            // Determine the text claim for the LLM
+            // If an image is uploaded, use a generic prompt indicating the image is the content.
+            const verificationInput = hasUploadedImage ? 
+                "Analyze the uploaded image and extract the main claim for verification. If no explicit claim is found, use Google Search to verify the image's content or context." : url;
+            
+            if (verificationInput) {
+                resetUI();
+                const jobId = crypto.randomUUID().substring(0, 8).toUpperCase();
+                jobIdSpan.textContent = jobId;
+                // Pass the generated or original text input to the job runner
+                runVerificationJob(jobId, verificationInput); 
+            } else {
+                showError("Input Required", "Please enter a URL or a claim to start verification.");
+            }
+        });
+
+        // --- Startup ---
+        window.onload = initFirebase;
+
+    </script>
+</body>
+</html>

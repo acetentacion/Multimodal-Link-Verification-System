@@ -1,0 +1,40 @@
+mutation CreateMindMap($title: String!, $description: String, $isPublic: Boolean) @auth(level: USER) {
+  mindMap_insert(data: {title: $title, description: $description, isPublic: $isPublic, ownerId_expr: "auth.uid"})
+}
+
+query GetMindMap($id: UUID!) @auth(level: USER) {
+  mindMap(id: $id) {
+    id
+    title
+    description
+    isPublic
+    createdAt
+    updatedAt
+    owner {
+      id
+      displayName
+      email
+      photoUrl
+    }
+    nodes_on_mindMap {
+      id
+      content
+      positionX
+      positionY
+      textContent
+      type
+    }
+    tags_via_MindMapTag {
+      id
+      name
+    }
+  }
+}
+
+mutation UpdateNode($id: UUID!, $content: String, $positionX: Float, $positionY: Float, $textContent: String, $type: String) @auth(level: USER) {
+  node_update(id: $id, data: {content: $content, positionX: $positionX, positionY: $positionY, textContent: $textContent, type: $type})
+}
+
+mutation DeleteMindMap($id: UUID!) @auth(level: USER) {
+  mindMap_delete(id: $id)
+}
