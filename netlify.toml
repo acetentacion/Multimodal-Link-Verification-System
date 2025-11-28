@@ -1,0 +1,20 @@
+# netlify.toml
+
+# 1. Configuration for Serverless Functions
+[build]
+  # Tell Netlify where your serverless functions are located
+  functions = "netlify/functions"
+  
+# 2. Rewrite Rules (CRITICAL for fixing the 404)
+[[redirects]]
+  # This maps the user-facing URL to the internal function path
+  from = "/api/gemini"
+  to = "/.netlify/functions/gemini"
+  status = 200 # Must use 200 for a successful proxy/rewrite
+  force = true 
+
+# 3. Root Path Redirect (Ensures / loads index.html)
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
