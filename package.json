@@ -3,9 +3,7 @@
     "@dataconnect/generated": "file:src/dataconnect-generated",
     "axios": "^1.13.2",
     "body-parser": "^2.2.1",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "node-fetch": "^3.3.2"
+    "express": "^5.1.0"
   },
   "name": "multimodal-link-verification-system",
   "version": "1.0.0",

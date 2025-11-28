@@ -1,52 +1,62 @@
-// api/gemini.js
+// netlify/functions/gemini.js
 
-// Using require for maximum compatibility in Vercel's Node.js environment
-const dotenv = require('dotenv');
-dotenv.config();
+// 1. Dependencies: We don't need 'dotenv' here as Netlify handles process.env
+// 2. Fetch: We rely on Node.js/Netlify's native global 'fetch' function (which is standard now)
 
 const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025'; 
 
-// This function must be exported using module.exports when using CommonJS
-module.exports = async function handler(req, res) {
-    // Set headers to allow cross-origin requests locally
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+// Netlify uses a standard function handler signature
+exports.handler = async function(event, context) {
     
-    // Check for API Key in environment variables
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-        console.error("GEMINI_API_KEY is missing or invalid in .env file.");
-        return res.status(500).json({ error: "Server configuration error: GEMINI_API_KEY is not set." });
+    // Netlify functions use event.body instead of req.body
+    let reqBody;
+    try {
+        // Handle incoming JSON body
+        reqBody = JSON.parse(event.body);
+    } catch (error) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: "Invalid JSON in request body." })
+        };
     }
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: "Method Not Allowed" });
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+        console.error("GEMINI_API_KEY is not set in Netlify Environment Variables.");
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "Server configuration error: GEMINI_API_KEY is missing." })
+        };
     }
 
     const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_API_KEY}`;
     
     try {
-        // Forward the client's payload
+        // Use the global fetch function
         const geminiResponse = await fetch(googleApiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body) 
+            body: JSON.stringify(reqBody) 
         });
 
-        // Get data from Gemini response
         const data = await geminiResponse.json();
 
-        // Pass the status and response body back to the client
-        res.status(geminiResponse.status).json(data);
+        // Return the response in the required Netlify function format
+        return {
+            statusCode: geminiResponse.status,
+            body: JSON.stringify(data),
+            headers: {
+                // Ensure CORS is allowed for your domain
+                'Access-Control-Allow-Origin': '*', 
+                'Content-Type': 'application/json'
+            }
+        };
 
     } catch (error) {
-        // This catches network issues or JSON parsing failures in the proxy
-        console.error('Proxy Function Crash Error:', error);
-        res.status(502).json({ error: "Proxy failed to connect to Gemini API or handle response." });
+        console.error('Netlify Function Crash Error:', error);
+        return {
+            statusCode: 502,
+            body: JSON.stringify({ error: "Proxy failed to connect to Gemini API or handle response." })
+        };
     }
 }
